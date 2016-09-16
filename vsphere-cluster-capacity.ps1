@@ -8,23 +8,40 @@ vSphere Version: 5.5
 
 #>
 
+
 param(
   [Parameter(Mandatory=$true, Position=0, HelpMessage="vCenter hostname or IP")][string]$vcenter,
   [Parameter(Mandatory=$true, Position=1, HelpMessage="Username for vCenter")][string]$user
   )
 
-$passwordin = Read-Host -AsSecureString -Prompt "Enter password for $user@$vcenter "
-$password = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($passwordin))
-
+#
+# Variables
 $global:clusterlist = "empty"
 $targetratio = 4
 $Output=@()
 
+$passwordin = Read-Host -AsSecureString -Prompt "Enter password for $user@$vcenter"
+$password = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($passwordin))
+
+#
+# Attempt connections to vCenter
 cls
 Write-Host "Connecting to $vcenter with user $user..."
-Write-Host 
+$vc = Connect-VIServer $vcenter -User $user -Password $password -WarningAction SilentlyContinue
 
-Connect-VIServer $vcenter
+#
+# Check if connection was established. Exit if login failed
+if(-Not $vc.IsConnected) {
+    Write-Host -ForegroundColor Yellow "Unable to connect to $vcenter. Exiting."
+    Write-Host "Make sure your username format is correct."
+    Write-Host "example: user.name@domainname or username@vsphere.local"
+    Write-Host ""
+
+    exit # exit if unable to connect
+}
+else {
+    Write-Host -ForegroundColor Green "Connected successfully"
+}
 
 #
 # displays menu of list of clusters
@@ -32,15 +49,15 @@ function Show-Cluster-Menu {
 
     Write-Host ""
     Write-Host ""
-    Write-Host -ForegroundColor Gray "============= Clusters ================"
+    Write-Host -ForegroundColor White "=========== Clusters ==========="
 
-     $global:clusterlist = Get-Cluster
+    $global:clusterlist = Get-Cluster
 
     # print out the array with numbers to make picking easier
     foreach ($item in $clusterlist) {
         Write-Host $clusterlist.IndexOf($item): $item 
     }
-    # q to quit
+    
     Write-Host
     Write-Host "Press 'q' to quit."
 }
@@ -84,24 +101,9 @@ function Get-Cluster-Data($clusterselection) {
     $cpuratiolessha = [math]::Round($clustervmtotalcoresparsed/$clustertotalcoreslessha,1)
 
     # Print the stuff
-    Write-Host -foreground Green "Cluster RAM: 't $clustertotalramparsed GB"
-    Write-Host -Foreground Green "Cluster RAM less HA: $clustertotalramlesshaparsed GB"
-    Write-Host ""
-    Write-Host -foreground Green "Cluster cores: " $clustertotalcores
-    Write-Host -foreground Green "Cluster cores less HA: " $clustertotalcoreslessha
-    Write-Host ""
-    Write-Host -ForegroundColor Yellow "Total vCPUs: $clustervmtotalcoresparsed"
-
-    Write-Host -ForegroundColor Yellow "pCPU:vCPU ratio: 1:$cpuratio"
-    Write-Host -ForegroundColor Yellow "pCPU:vCPU ratio less HA: 1:$cpuratiolessha"
-    
-    Write-Host ""
-    Write-Host ""
-    Write-Host ""
-
     $temp= New-Object psobject
     $temp| Add-Member -MemberType Noteproperty "Cluster RAM" -value "$clustertotalramparsed GB"
-    $temp| Add-Member -MemberType Noteproperty "Cluster RAM less HA host" -Value $clustertotalramlesshaparsed
+    $temp| Add-Member -MemberType Noteproperty "Cluster RAM less HA host" -Value "$clustertotalramlesshaparsed GB"
 
     $temp| Add-Member -MemberType Noteproperty "Cluster cores" -Value $clustertotalcores
     $temp| Add-Member -MemberType Noteproperty "Cluster cores less HA" -Value $clustertotalcoreslessha
@@ -138,6 +140,6 @@ do
 until ($clusterselection -eq 'q')
 
 
-Disconnect-VIServer -Server $vcenter -Confirm:$false
+Disconnect-VIServer -Server $vcenter -Confirm:$false -force -WarningAction SilentlyContinue -ErrorAction SilentlyContinue | Out-Null
 Write-Host
 Write-Host "Disconnected from $vcenter"
