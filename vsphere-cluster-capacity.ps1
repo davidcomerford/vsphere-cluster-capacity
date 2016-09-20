@@ -70,31 +70,35 @@ function Get-Cluster-Data($clusterselection) {
     Write-Host "Processing cluster $clusterselection "
     Write-Host ""
 
-    # build an array of hosts in cluster
+    # build an list of hosts in cluster
     $vmhosts = Get-VMHost -Location $clusterselection
 
     # Number of hosts in the cluster
     $numhosts = $vmhosts.count
 
-    # Add up RAM
+    # Host RAM
     $clustertotalram = $vmhosts | Measure-Object 'MemoryTotalGB' -Sum
     
-    # RAM less one host (for HA)
+    # Host RAM less one for HA
     $clustertotalramlessha = $clustertotalram.Sum - ($clustertotalram.Sum/$numhosts)
     
-    # Count CPU cores
+    # Host CPU cores
     $clustertotalcores = $clusterselection.ExtensionData.Summary.NumCpuCores
 
-    # CPU cores less one host (for HA)
+    # Host CPU cores less one host for HA
     $clustertotalcoreslessha = $clustertotalcores - ($clustertotalcores/$numhosts)
 
-    # Count VM vCPUs
+    # VM vCPUs
     $clustervmtotalcores = $vmhosts | Get-VM | Measure-Object 'NumCPU' -Sum
+
+    # build a list of VMs in cluster
+    $vmmemory = $clusterselection | Get-VM | Measure-Object 'MemoryGB' -Sum
 
     # Round up the numbers
     $clustertotalramparsed = [math]::Round($clustertotalram.Sum)
     $clustertotalramlesshaparsed = [math]::Round($clustertotalramlessha)
     $clustervmtotalcoresparsed = $clustervmtotalcores.Sum
+    $vmmemoryparsed = [math]::Round($vmmemory.Sum)
 
     # pCPU:vCPU ratio
     $cpuratio = [math]::Round($clustervmtotalcoresparsed/$clustertotalcores,1)
@@ -104,6 +108,8 @@ function Get-Cluster-Data($clusterselection) {
     $temp= New-Object psobject
     $temp| Add-Member -MemberType Noteproperty "Cluster RAM" -value "$clustertotalramparsed GB"
     $temp| Add-Member -MemberType Noteproperty "Cluster RAM less HA host" -Value "$clustertotalramlesshaparsed GB"
+
+    $temp| Add-Member -MemberType NoteProperty "VM vRAM" -Value "$vmmemoryparsed GB"
 
     $temp| Add-Member -MemberType Noteproperty "Cluster cores" -Value $clustertotalcores
     $temp| Add-Member -MemberType Noteproperty "Cluster cores less HA" -Value $clustertotalcoreslessha
