@@ -91,6 +91,12 @@ function Get-Cluster-Data($clusterselection) {
     # VM vCPUs
     $clustervmtotalcores = $vmhosts | Get-VM | Measure-Object 'NumCPU' -Sum
 
+    # Free vCPU left
+    $clustercoresremaining = ($clustertotalcores * $targetratio) - $clustervmtotalcores.Sum
+
+    # Free vCPU left less one host for HA
+    $clustercoresremaininglessha = ($clustertotalcoreslessha * $targetratio) - $clustervmtotalcores.Sum
+
     # build a list of VMs in cluster
     $vmmemory = $clusterselection | Get-VM | Measure-Object 'MemoryGB' -Sum
 
@@ -115,6 +121,8 @@ function Get-Cluster-Data($clusterselection) {
     $temp| Add-Member -MemberType Noteproperty "Cluster cores less HA" -Value $clustertotalcoreslessha
     
     $temp| Add-Member -MemberType Noteproperty "Total vCPUs" -Value $clustervmtotalcoresparsed
+    $temp| Add-Member -MemberType NoteProperty "vCPUs left" -Value $clustercoresremaining
+    $temp| Add-Member -MemberType NoteProperty "vCPUs left less HA" -Value $clustercoresremaininglessha
 
     $temp| Add-Member -MemberType Noteproperty "pCPU:vCPU ratio" -Value "1:$cpuratio"
     $temp| Add-Member -MemberType Noteproperty "pCPU:vCPU ratio less HA" -Value "1:$cpuratiolessha "
