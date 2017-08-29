@@ -81,7 +81,7 @@ function Get-Cluster-Data($clusterselection) {
     
     # Host RAM less one for HA
     $clustertotalramlessha = $clustertotalram.Sum - ($clustertotalram.Sum/$numhosts)
-    
+ 
     # Host CPU cores
     $clustertotalcores = $clusterselection.ExtensionData.Summary.NumCpuCores
 
@@ -97,12 +97,16 @@ function Get-Cluster-Data($clusterselection) {
     # Free vCPU left less one host for HA
     $clustercoresremaininglessha = ($clustertotalcoreslessha * $targetratio) - $clustervmtotalcores.Sum
 
-    # build a list of VMs in cluster
+    # VM memeory
     $vmmemory = $clusterselection | Get-VM | Measure-Object 'MemoryGB' -Sum
+
+    # Free RAM left
+    $clusterramfree = $clustertotalramlessha - $vmmemory.Sum
 
     # Round up the numbers
     $clustertotalramparsed = [math]::Round($clustertotalram.Sum)
     $clustertotalramlesshaparsed = [math]::Round($clustertotalramlessha)
+    $clusterramfreeparsed = [math]::Round($clusterramfree)
     $clustervmtotalcoresparsed = $clustervmtotalcores.Sum
     $vmmemoryparsed = [math]::Round($vmmemory.Sum)
 
@@ -115,14 +119,15 @@ function Get-Cluster-Data($clusterselection) {
     $temp| Add-Member -MemberType Noteproperty "Cluster RAM" -value "$clustertotalramparsed GB"
     $temp| Add-Member -MemberType Noteproperty "Cluster RAM less HA host" -Value "$clustertotalramlesshaparsed GB"
 
-    $temp| Add-Member -MemberType NoteProperty "VM vRAM" -Value "$vmmemoryparsed GB"
+    $temp| Add-Member -MemberType NoteProperty "vRAM provisioned" -Value "$vmmemoryparsed GB"
+    $temp| Add-Member -MemberType NoteProperty "vRAM free" -Value "$clusterramfreeparsed GB"
 
     $temp| Add-Member -MemberType Noteproperty "Cluster cores" -Value $clustertotalcores
     $temp| Add-Member -MemberType Noteproperty "Cluster cores less HA" -Value $clustertotalcoreslessha
     
-    $temp| Add-Member -MemberType Noteproperty "Total vCPUs" -Value $clustervmtotalcoresparsed
-    $temp| Add-Member -MemberType NoteProperty "vCPUs left" -Value $clustercoresremaining
-    $temp| Add-Member -MemberType NoteProperty "vCPUs left less HA" -Value $clustercoresremaininglessha
+    $temp| Add-Member -MemberType Noteproperty "vCPUs provisioned" -Value $clustervmtotalcoresparsed
+    $temp| Add-Member -MemberType NoteProperty "vCPUs free" -Value $clustercoresremaining
+    $temp| Add-Member -MemberType NoteProperty "vCPUs free less HA" -Value $clustercoresremaininglessha
 
     $temp| Add-Member -MemberType Noteproperty "pCPU:vCPU ratio" -Value "1:$cpuratio"
     $temp| Add-Member -MemberType Noteproperty "pCPU:vCPU ratio less HA" -Value "1:$cpuratiolessha "
